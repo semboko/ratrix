@@ -1,16 +1,18 @@
 use crossterm::{
-    cursor::{Hide, MoveTo},
-    event::{self, Event, KeyCode, KeyEvent},
+    cursor::{Hide, MoveTo, MoveToColumn},
+    event::{self, KeyCode},
     execute,
     terminal::{self, Clear, EnterAlternateScreen, LeaveAlternateScreen, SetSize},
 };
-use std::{io::{self, stdout, Stdout}, time::Duration};
+use std::{
+    io::{self, Stdout, stdout},
+    time::Duration,
+};
 
 use crate::tetris_engine::TetrisEngine;
 
 #[derive(Debug)]
 pub struct App {
-    event_buffer: Vec<Event>,
     rerender_required: bool,
     exit: bool,
     sout: Stdout,
@@ -20,7 +22,6 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         return Self {
-            event_buffer: vec![],
             rerender_required: true,
             sout: stdout(),
             exit: false,
@@ -39,7 +40,7 @@ impl App {
                 _ => {
                     self.rerender_required = true;
                     f(key.code)
-                },
+                }
             }
         }
         Ok(())
@@ -64,16 +65,35 @@ impl App {
         while !self.exit {
             // Mainloop:
             // 1. Handle key events
-            if event::poll(Duration::from_millis(16))?{
+            if event::poll(Duration::from_millis(16))? {
                 self.handle_key(|key: KeyCode| match key {
+                    KeyCode::Right => engine.move_current_shape(1, 0),
+                    KeyCode::Left => engine.move_current_shape(-1, 0),
+                    KeyCode::Up => engine.move_current_shape(0, -1),
+                    KeyCode::Down => engine.move_current_shape(0, 1),
                     _ => {}
                 })?;
             }
 
-            // 2. Refresh screen if needed
+            // 2. Perform engine changes
+
+            // 2.1 Render is required if engine was changed
+            if engine.changed {
+                self.rerender_required = true;
+            }
+
+            // 3. Refresh screen if needed
             if self.rerender_required {
+                // 2.1 Clear the screen
                 execute!(self.sout, Clear(terminal::ClearType::All), MoveTo(0, 0))?;
-                println!("renrer");
+
+                // 2.2 Draw stuff
+                for line in engine.get_lines() {
+                    println!("{}", line);
+                    execute!(self.sout, MoveToColumn(0))?;
+                }
+
+                // 2.3 Render is not required anymore until the next key press is detected
                 self.rerender_required = false;
             }
         }
