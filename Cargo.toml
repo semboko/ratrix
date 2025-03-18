@@ -5,4 +5,3 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.28.1"
-primitive-types = "0.13.1"
