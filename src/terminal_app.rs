@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor::{Hide, MoveTo, MoveToColumn},
+    cursor::{Hide, MoveTo, MoveToColumn, Show},
     event::{self, KeyCode},
     execute,
     terminal::{self, Clear, EnterAlternateScreen, LeaveAlternateScreen, SetSize},
@@ -56,7 +56,7 @@ impl App {
     pub fn teardown(&mut self) -> io::Result<()> {
         terminal::disable_raw_mode()?;
         let (cols, rows) = self.init_terminal_size;
-        execute!(self.sout, SetSize(cols, rows), LeaveAlternateScreen)?;
+        execute!(self.sout, SetSize(cols, rows), Show, LeaveAlternateScreen)?;
         println!("\x1b[?1049l"); // Leave Alternate Screen Mode
         Ok(())
     }
