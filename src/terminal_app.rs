@@ -2,10 +2,10 @@ use crossterm::{
     cursor::{Hide, MoveTo, MoveToColumn, Show},
     event::{self, KeyCode},
     execute,
-    terminal::{self, Clear, EnterAlternateScreen, LeaveAlternateScreen, SetSize},
+    terminal::{self, Clear, EnterAlternateScreen, LeaveAlternateScreen, SetSize, SetTitle},
 };
 use std::{
-    io::{self, Stdout, stdout},
+    io::{self, BufWriter, Stdout},
     time::Duration,
 };
 
@@ -15,7 +15,7 @@ use crate::tetris_engine::TetrisEngine;
 pub struct App {
     rerender_required: bool,
     exit: bool,
-    sout: Stdout,
+    sout: BufWriter<Stdout>,
     init_terminal_size: (u16, u16),
 }
 
@@ -23,7 +23,7 @@ impl App {
     pub fn new() -> Self {
         return Self {
             rerender_required: true,
-            sout: stdout(),
+            sout: io::BufWriter::new(io::stdout()),
             exit: false,
             init_terminal_size: terminal::size().unwrap(),
         };
@@ -38,7 +38,6 @@ impl App {
             match key.code {
                 KeyCode::Esc => self.exit = true,
                 _ => {
-                    self.rerender_required = true;
                     f(key.code)
                 }
             }
@@ -48,7 +47,7 @@ impl App {
 
     pub fn setup(&mut self) -> io::Result<()> {
         terminal::enable_raw_mode()?;
-        execute!(self.sout, Hide, EnterAlternateScreen)?;
+        execute!(self.sout, Hide, EnterAlternateScreen, SetTitle("Ratrix"))?;
         println!("\x1b[?1049h"); // Enter Alternate Screen Mode
         Ok(())
     }
@@ -62,6 +61,7 @@ impl App {
     }
 
     pub fn run(&mut self, engine: &mut TetrisEngine) -> io::Result<()> {
+        let mut frames_counter = 0;
         while !self.exit {
             // Mainloop:
             // 1. Handle key events
@@ -95,6 +95,9 @@ impl App {
 
                 // 2.3 Render is not required anymore until the next key press is detected
                 self.rerender_required = false;
+                engine.changed = false;
+                execute!(self.sout, SetTitle(format!("Ratrix ({} frame)", frames_counter)))?;
+                frames_counter += 1;
             }
         }
         Ok(())
