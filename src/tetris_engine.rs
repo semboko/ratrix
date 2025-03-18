@@ -134,11 +134,11 @@ impl TetrisEngine {
         if let Some(new_x) = (self.piece_position[0] as isize + dx).try_into().ok() {
             self.piece_position[0] = new_x;
         }
-        
+
         if let Some(new_y) = (self.piece_position[1] as isize + dy).try_into().ok() {
             self.piece_position[1] = new_y;
         }
-    
+
         self.changed = true;
     }
 

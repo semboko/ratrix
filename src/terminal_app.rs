@@ -37,9 +37,7 @@ impl App {
         if let event::Event::Key(key) = e {
             match key.code {
                 KeyCode::Esc => self.exit = true,
-                _ => {
-                    f(key.code)
-                }
+                _ => f(key.code),
             }
         }
         Ok(())
@@ -96,7 +94,10 @@ impl App {
                 // 2.3 Render is not required anymore until the next key press is detected
                 self.rerender_required = false;
                 engine.changed = false;
-                execute!(self.sout, SetTitle(format!("Ratrix ({} frame)", frames_counter)))?;
+                execute!(
+                    self.sout,
+                    SetTitle(format!("Ratrix ({} frame)", frames_counter))
+                )?;
                 frames_counter += 1;
             }
         }
