@@ -18,15 +18,14 @@ enum Orientation {
 }
 
 fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) -> u16 {
-
     // The u16 integers should be interpreted as follows
-    // 
+    //
     //   |r4| |r3| |r2| |r1|
     // 0b----_----_----_----
     //
     // where rn is the nth row of the shape.
-    // 
-    // For example, the bytes of the L shape: 
+    //
+    // For example, the bytes of the L shape:
     // 0b_0000_0000_0010_1110
     // can be converted into this matrix:
     // 1110  which is : ███░
@@ -51,8 +50,8 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
         (Tetromino::O, _) => 0b_0000_0110_0110_0000,
 
         // L-Piece
-        (Tetromino::L, Orientation::N) => 0b_0000_1000_1110_0000,  // OK  The only pieces, which I tested, 
-        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000,  // OK  the rest are produced by GPT
+        (Tetromino::L, Orientation::N) => 0b_0000_1000_1110_0000, // OK  The only pieces, which I tested,
+        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000, // OK  the rest are produced by GPT
         (Tetromino::L, Orientation::S) => 0b_0000_0010_0111_0000,
         (Tetromino::L, Orientation::W) => 0b_0000_0110_0010_0010,
 
@@ -198,7 +197,7 @@ impl TetrisEngine {
             return;
         }
 
-        if self.can_move_down(){
+        if self.can_move_down() {
             self.piece_position[1] += 1;
         } else {
             // TODO: 1. Merge the active_piece into the playfield
