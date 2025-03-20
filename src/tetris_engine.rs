@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 enum Tetromino {
     T,
     I,
@@ -58,12 +60,20 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
     }
 }
 
+fn get_current_time() -> f64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(n) => return n.as_secs_f64(),
+        Err(_) => panic!("System time error"),
+    }
+}
+
 pub struct TetrisEngine {
     playfield: [u16; 20],
     piece_position: [u8; 2],
     piece_orientation: Orientation,
     active_piece: Tetromino,
     pub changed: bool,
+    last_update: f64,
 }
 
 impl TetrisEngine {
@@ -74,6 +84,7 @@ impl TetrisEngine {
             changed: true,
             active_piece: Tetromino::L, // TODO: Should be a random tetramino!
             piece_orientation: Orientation::N,
+            last_update: get_current_time(),
         };
     }
 
@@ -142,11 +153,28 @@ impl TetrisEngine {
         self.changed = true;
     }
 
+    pub fn update(&mut self) {
+        // TODO: the idle time actually depends on the speed, but it's not added yet
+        let idle_time = 1.0;
+        let current_time = get_current_time();
+        if current_time < self.last_update + idle_time {
+            // Not enough time elapsed from the previous update
+            return;
+        }
+
+        // TODO: Of course, we need check wether the piece can be moved!
+        self.piece_position[1] += 1;
+
+        self.last_update = current_time;
+        self.changed = true;
+    }
+
     pub fn blit_tile(&mut self, x: usize, y: usize) {
         self.playfield[y] = (1 << (9 - x)) | self.playfield[y];
         self.changed = true;
     }
 
+    // TODO: This is the part of the renderer layer
     pub fn get_lines(&self) -> Vec<String> {
         let mut result: Vec<String> = vec![];
 
@@ -186,6 +214,8 @@ impl TetrisEngine {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
 
     #[test]
@@ -220,6 +250,21 @@ mod tests {
     fn change_is_true_when_blit_happened() {
         let mut tetris = TetrisEngine::new();
         tetris.blit_tile(0, 0);
+        assert_eq!(tetris.changed, true);
+    }
+
+    #[test]
+    fn engine_can_be_updated() {
+        let mut tetris = TetrisEngine::new();
+        tetris.update();
+        // The initial update shouldn't change the position of the active piece,
+        // since not enough time elapsed from the 'last_update'
+        assert_eq!(tetris.piece_position[1], 0);
+        // Mock the scenario that 1 second elapsed from the previous step
+        tetris.last_update -= 1.0;
+        // The update should affect the y position of the piece now!
+        tetris.update();
+        assert_eq!(tetris.piece_position[1], 1);
         assert_eq!(tetris.changed, true);
     }
 }

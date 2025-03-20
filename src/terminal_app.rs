@@ -74,6 +74,7 @@ impl App {
             }
 
             // 2. Perform engine changes
+            engine.update();
 
             // 2.1 Render is required if engine was changed
             if engine.changed {
