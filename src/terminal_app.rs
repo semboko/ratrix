@@ -67,7 +67,7 @@ impl App {
                 self.handle_key(|key: KeyCode| match key {
                     KeyCode::Right => engine.move_current_shape(1, 0),
                     KeyCode::Left => engine.move_current_shape(-1, 0),
-                    KeyCode::Up => engine.move_current_shape(0, -1),
+                    KeyCode::Up => engine.rotate(),
                     KeyCode::Down => engine.move_current_shape(0, 1),
                     _ => {}
                 })?;
