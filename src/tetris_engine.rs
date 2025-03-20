@@ -40,6 +40,9 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
     // Important Constraints:
     // - Each shape should be **aligned to the top-left corner** of the 4x4 matrix.
 
+    // The pieces I've already check is labeled `OK`
+    // The rest were produced by ChatGPT
+
     match (piece, orientation) {
         // T-Piece
         (Tetromino::T, Orientation::N) => 0b_0010_0110_0010_0000,
@@ -48,17 +51,17 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
         (Tetromino::T, Orientation::W) => 0b_0000_0100_0111_0000,
 
         // I-Piece
-        (Tetromino::I, Orientation::N) => 0b_0000_1111_0000_0000,
-        (Tetromino::I, Orientation::E) => 0b_0010_0010_0010_0010,
-        (Tetromino::I, Orientation::S) => 0b_0000_1111_0000_0000,
-        (Tetromino::I, Orientation::W) => 0b_0010_0010_0010_0010,
+        (Tetromino::I, Orientation::N) => 0b_1000_1000_1000_1000, // OK
+        (Tetromino::I, Orientation::E) => 0b_0000_0000_0000_1111, // OK
+        (Tetromino::I, Orientation::S) => 0b_1000_1000_1000_1000, // OK
+        (Tetromino::I, Orientation::W) => 0b_0000_0000_0000_1111, // OK
 
         // O-Piece (always the same)
-        (Tetromino::O, _) => 0b_0000_0110_0110_0000,
+        (Tetromino::O, _) => 0b_0000_0000_1100_1100, // OK
 
         // L-Piece
-        (Tetromino::L, Orientation::N) => 0b_0000_0000_1000_1110, // OK  The only pieces I tested,
-        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000, // OK  ..the rest are produced by GPT
+        (Tetromino::L, Orientation::N) => 0b_0000_0000_1000_1110, // OK
+        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000, // OK
         (Tetromino::L, Orientation::S) => 0b_0000_0000_1110_0010, // OK
         (Tetromino::L, Orientation::W) => 0b_0000_0100_0100_1100, // OK
 
@@ -92,7 +95,7 @@ fn get_current_time() -> f64 {
 fn get_piece_height(piece: &u16) -> u8 {
     let mut result: u8 = 0;
     for i in 0..4 {
-        let piece_row = (piece >> i) * 0xf;
+        let piece_row = (piece >> i * 4) * 0xf;
         if piece_row > 0 {
             result += 1;
         }
@@ -189,7 +192,7 @@ impl TetrisEngine {
     fn can_move_down(&self) -> bool {
         let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         let piece_height = get_piece_height(&piece);
-        if (self.piece_position[1] + piece_height) > 21 {
+        if (self.piece_position[1] + piece_height) > 19 {
             return false;
         }
         for i in 0..4 {
@@ -243,6 +246,16 @@ impl TetrisEngine {
 
     fn lock_tile(&mut self, x: usize, y: usize) {
         self.playfield[y] = (1 << (9 - x)) | self.playfield[y];
+        self.changed = true;
+    }
+
+    pub fn rotate(&mut self) {
+        match self.piece_orientation {
+            Orientation::N => self.piece_orientation = Orientation::E,
+            Orientation::E => self.piece_orientation = Orientation::S,
+            Orientation::S => self.piece_orientation = Orientation::W,
+            Orientation::W => self.piece_orientation = Orientation::N,
+        }
         self.changed = true;
     }
 
@@ -398,7 +411,7 @@ mod tests {
         assert_eq!(tetris.can_move_down(), false);
     }
     #[test]
-    fn can_move_down_tricky_case() {
+    fn can_move_down_tricky_case_1() {
         // The following scenario is tested:
         // 16 ░░░░░░░▒▒▒  → ▒ Active piece is the L-shape on the line 16
         // 17 ░░░░░░░▒░░
@@ -413,5 +426,56 @@ mod tests {
         tetris.lock_tile(8, 19);
         tetris.piece_position = [7, 16];
         assert_eq!(tetris.can_move_down(), true);
+    }
+
+    #[test]
+    fn can_move_down_tricky_case_2() {
+        // The following scenario is tested:
+        // 17 ▒░░░░░░░░░  → The E-oriented L-shape is positioned on the line 17
+        // 18 ▒░░░░░░░░░    and it's about to make an invalid move down
+        // 19 ▒▒░░░░░░░░
+        // Active piece CAN'T move down 🚫
+
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [0, 17];
+        assert_eq!(tetris.can_move_down(), false);
+    }
+
+    #[test]
+    fn piece_height_is_correctly_calculated() {
+        let north_l = get_tetromino_representation(&Tetromino::L, &Orientation::N);
+        let east_l = get_tetromino_representation(&Tetromino::L, &Orientation::E);
+        assert_eq!(get_piece_height(&north_l), 2);
+        assert_eq!(get_piece_height(&east_l), 3);
+    }
+
+    #[test]
+    fn rotation_works() {
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        assert_eq!(tetris.changed, true); // Changed!
+        let lines = tetris.get_lines();
+        assert_eq!(lines[0], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
+        assert_eq!(lines[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
+        assert_eq!(lines[2], "⬜⬜⬜⬜🟧🟧⬜⬜⬜⬜");
+        tetris.rotate();
+        assert_eq!(tetris.changed, true);
+        let lines = tetris.get_lines();
+        assert_eq!(lines[0], "⬜⬜⬜⬜⬜⬜🟧⬜⬜⬜");
+        assert_eq!(lines[1], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
+        assert_eq!(lines[2], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+        tetris.rotate();
+        assert_eq!(tetris.changed, true);
+        let lines = tetris.get_lines();
+        assert_eq!(lines[0], "⬜⬜⬜⬜🟧🟧⬜⬜⬜⬜");
+        assert_eq!(lines[1], "⬜⬜⬜⬜⬜🟧⬜⬜⬜⬜");
+        assert_eq!(lines[2], "⬜⬜⬜⬜⬜🟧⬜⬜⬜⬜");
+        tetris.rotate();
+        assert_eq!(tetris.changed, true);
+        let lines = tetris.get_lines();
+        assert_eq!(lines[0], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
+        assert_eq!(lines[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
+        assert_eq!(lines[2], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
     }
 }
