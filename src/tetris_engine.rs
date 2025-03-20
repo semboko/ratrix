@@ -192,7 +192,7 @@ impl TetrisEngine {
         if (self.piece_position[1] + piece_height) > 21 {
             return false;
         }
-        for i in 0..4{
+        for i in 0..4 {
             let shift_x = 7 - self.piece_position[0];
             let piece_row = ((piece >> (i * 4)) & 0xf) << shift_x >> 1;
             let target_y = (self.piece_position[1] + i + 1) as usize;
@@ -381,12 +381,12 @@ mod tests {
     }
 
     #[test]
-    fn can_not_move_down_if_piece_under(){
+    fn can_not_move_down_if_piece_under() {
         // The following scenario is tested:
         // 16 ░░░░░░░▒▒▒  → ▒ Active piece is the L-shape on the line 16
         // 17 ░░░░░░░▒░░
         // 18 ░░░░░░░███  → █ There are locked tiles in the playfield under the active piece
-        // 19 ░░░░░░░█░░      
+        // 19 ░░░░░░░█░░
         // Active piece CAN'T move down 🚫
 
         let mut tetris = TetrisEngine::new();
@@ -396,7 +396,6 @@ mod tests {
         tetris.lock_tile(7, 19);
         tetris.piece_position = [7, 16];
         assert_eq!(tetris.can_move_down(), false);
-        
     }
     #[test]
     fn can_move_down_tricky_case() {
@@ -404,7 +403,7 @@ mod tests {
         // 16 ░░░░░░░▒▒▒  → ▒ Active piece is the L-shape on the line 16
         // 17 ░░░░░░░▒░░
         // 18 ░░░░░░░░██  → █ There are locked tiles in the playfield under the active piece.
-        // 19 ░░░░░░░██░      
+        // 19 ░░░░░░░██░
         // Active piece CAN move down 👍
 
         let mut tetris = TetrisEngine::new();
