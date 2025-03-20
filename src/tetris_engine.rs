@@ -18,6 +18,22 @@ enum Orientation {
 }
 
 fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) -> u16 {
+
+    // The u16 integers should be interpreted as follows
+    // 
+    //   |r4| |r3| |r2| |r1|
+    // 0b----_----_----_----
+    //
+    // where rn is the nth row of the shape.
+    // 
+    // For example, the bytes of the L shape: 
+    // 0b_0000_0000_0010_1110
+    // can be converted into this matrix:
+    // 1110  which is : ███░
+    // 1000             █░░░
+    // 0000             ░░░░
+    // 0000             ░░░░
+
     match (piece, orientation) {
         // T-Piece
         (Tetromino::T, Orientation::N) => 0b_0010_0110_0010_0000,
@@ -35,8 +51,8 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
         (Tetromino::O, _) => 0b_0000_0110_0110_0000,
 
         // L-Piece
-        (Tetromino::L, Orientation::N) => 0b_0000_0001_0111_0000,
-        (Tetromino::L, Orientation::E) => 0b_0010_0010_0011_0000,
+        (Tetromino::L, Orientation::N) => 0b_0000_1000_1110_0000,  // OK  The only pieces, which I tested, 
+        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000,  // OK  the rest are produced by GPT
         (Tetromino::L, Orientation::S) => 0b_0000_0010_0111_0000,
         (Tetromino::L, Orientation::W) => 0b_0000_0110_0010_0010,
 
@@ -67,6 +83,17 @@ fn get_current_time() -> f64 {
     }
 }
 
+fn get_piece_height(piece: &u16) -> u8 {
+    let mut result: u8 = 0;
+    for i in 0..4 {
+        let piece_row = (piece >> i) * 0xf;
+        if piece_row > 0 {
+            result += 1;
+        }
+    }
+    result
+}
+
 pub struct TetrisEngine {
     playfield: [u16; 20],
     piece_position: [u8; 2],
@@ -80,9 +107,9 @@ impl TetrisEngine {
     pub fn new() -> Self {
         return Self {
             playfield: [0; 20],
-            piece_position: [4, 0], // TODO: Should be different for every tetramino!
+            piece_position: [4, 0], // TODO: The initial position should be different for every tetramino!
             changed: true,
-            active_piece: Tetromino::L, // TODO: Should be a random tetramino!
+            active_piece: Tetromino::L,
             piece_orientation: Orientation::N,
             last_update: get_current_time(),
         };
@@ -153,17 +180,31 @@ impl TetrisEngine {
         self.changed = true;
     }
 
+    fn can_move_down(&self) -> bool {
+        let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
+        let piece_height = get_piece_height(&piece);
+        if (self.piece_position[1] + piece_height) > 21 {
+            return false;
+        }
+        true
+    }
+
     pub fn update(&mut self) {
         // TODO: the idle time actually depends on the speed, but it's not added yet
-        let idle_time = 1.0;
+        let idle_time = 0.5;
         let current_time = get_current_time();
         if current_time < self.last_update + idle_time {
             // Not enough time elapsed from the previous update
             return;
         }
 
-        // TODO: Of course, we need check wether the piece can be moved!
-        self.piece_position[1] += 1;
+        if self.can_move_down(){
+            self.piece_position[1] += 1;
+        } else {
+            // TODO: 1. Merge the active_piece into the playfield
+            // TODO: 2. Generate a new active_piece
+            // TODO: 3. Set new position of the active_piece
+        }
 
         self.last_update = current_time;
         self.changed = true;
@@ -214,8 +255,6 @@ impl TetrisEngine {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::*;
 
     #[test]
@@ -225,7 +264,7 @@ mod tests {
         // The first 3 lines must contain the active_piece
         // TODO: Currently it's always an L piece, but it should be a random piece in the future
         assert_eq!(board_str[0], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(board_str[1], "⬜⬜⬜⬜⬜⬜🟧⬜⬜⬜");
+        assert_eq!(board_str[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
 
         // The rest of the lines should be empty
         for i in 2..20 {
@@ -239,7 +278,7 @@ mod tests {
         tetris.blit_tile(0, 0);
         let board_str = tetris.get_lines();
         assert_eq!(board_str[0], "🟧⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(board_str[1], "⬜⬜⬜⬜⬜⬜🟧⬜⬜⬜");
+        assert_eq!(board_str[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
         // The rest of the lines should be empty
         for i in 3..20 {
             assert_eq!(board_str[i], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
@@ -266,5 +305,19 @@ mod tests {
         tetris.update();
         assert_eq!(tetris.piece_position[1], 1);
         assert_eq!(tetris.changed, true);
+    }
+
+    #[test]
+    fn can_move_down_returns_true_on_empty_playfield() {
+        let tetris = TetrisEngine::new();
+        assert!(tetris.can_move_down());
+    }
+
+    #[test]
+    fn can_move_down_returns_false_on_the_bottom() {
+        let mut tetris = TetrisEngine::new();
+        tetris.piece_position[1] = 18;
+        // The next move will cause the shape to be under the playfield
+        assert!(!tetris.can_move_down());
     }
 }
