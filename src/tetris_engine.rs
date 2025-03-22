@@ -597,7 +597,7 @@ mod tests {
         tetris.piece_position = [3, 17];
         tetris.lock_active_piece();
         tetris.piece_position = [3, 14];
-        tetris.move_current_shape(0, 1);  // Soft drop
+        tetris.move_current_shape(0, 1); // Soft drop
         assert_eq!(tetris.piece_position[1], 14) // Y-position of the piece shouldn't change
     }
 }
