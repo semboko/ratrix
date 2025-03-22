@@ -110,7 +110,7 @@ fn get_piece_width(piece: &u16) -> u8 {
     for i in 0..4 {
         let row = (piece >> (i * 4)) & 0b1111; // Extract the 4-bit row
 
-        let mut leftmost = 4;  // Leftmost occupied column (initialize to max)
+        let mut leftmost = 4; // Leftmost occupied column (initialize to max)
         let mut rightmost = 0; // Rightmost occupied column
 
         for j in 0..4 {
@@ -120,7 +120,8 @@ fn get_piece_width(piece: &u16) -> u8 {
             }
         }
 
-        if leftmost < 4 { // If there is at least one occupied tile in this row
+        if leftmost < 4 {
+            // If there is at least one occupied tile in this row
             max_width = max_width.max(rightmost - leftmost + 1);
         }
     }
@@ -220,7 +221,7 @@ impl TetrisEngine {
     fn get_positioned_piece_row(&self, piece: &u16, i: &u8) -> u16 {
         // Extracts the i-th row from a piece and position it into
         // a 10 bit wide row in accordance with its current x-position.
-        
+
         // Extracting i-th the row
         let mut piece_row = (piece >> (i * 4)) & 0xf;
         // Removing the extra zeroes from the right
@@ -537,7 +538,7 @@ mod tests {
         tetris.move_current_shape(1, 0);
         assert_eq!(tetris.piece_position, [7, 0]);
         tetris.last_update -= 1.0;
-        tetris.update();  // Update shouldn't crash the game
+        tetris.update(); // Update shouldn't crash the game
     }
 
     #[test]
