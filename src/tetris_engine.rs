@@ -45,10 +45,10 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
 
     match (piece, orientation) {
         // T-Piece
-        (Tetromino::T, Orientation::N) => 0b_0010_0110_0010_0000,
-        (Tetromino::T, Orientation::E) => 0b_0000_0111_0010_0000,
-        (Tetromino::T, Orientation::S) => 0b_0010_0110_0010_0000,
-        (Tetromino::T, Orientation::W) => 0b_0000_0100_0111_0000,
+        (Tetromino::T, Orientation::N) => 0b_0000_0000_1110_0100, // OK
+        (Tetromino::T, Orientation::E) => 0b_0000_1000_1100_1000, // OK
+        (Tetromino::T, Orientation::S) => 0b_0000_0000_0100_1110, // OK
+        (Tetromino::T, Orientation::W) => 0b_0000_0100_1100_0100, // OK
 
         // I-Piece
         (Tetromino::I, Orientation::N) => 0b_1000_1000_1000_1000, // OK
@@ -212,7 +212,9 @@ impl TetrisEngine {
         }
 
         if let Some(new_y) = (self.piece_position[1] as isize + dy).try_into().ok() {
-            self.piece_position[1] = new_y;
+            if self.can_move_down() {
+                self.piece_position[1] = new_y;
+            }
         }
 
         self.changed = true;
@@ -278,8 +280,7 @@ impl TetrisEngine {
     fn lock_active_piece(&mut self) {
         let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         for i in 0..4 {
-            let shift_x = 7 - self.piece_position[0];
-            let piece_row = (((piece >> (i * 4)) & 0xf) << shift_x) >> 1;
+            let piece_row = self.get_positioned_piece_row(&piece, &i);
             if piece_row == 0 {
                 continue;
             }
@@ -577,5 +578,26 @@ mod tests {
         tetris.lock_active_piece();
         tetris.piece_position = [4, 14];
         assert_eq!(tetris.can_move_down(), true);
+    }
+
+    #[test]
+    fn piece_should_not_be_moved_down_if_not_possible() {
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░█░░░░░░
+        // 15 ░░░█░░░░░░
+        // 16 ░░░██░░░░░
+        // 17 ░░░▓░░░░░░
+        // 18 ░░░▓░░░░░░
+        // 19 ░░░▓▓░░░░░
+        // The upper piece is about to be locked in the next update.
+        // The engine should ignore soft drop.
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [3, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [3, 14];
+        tetris.move_current_shape(0, 1);  // Soft drop
+        assert_eq!(tetris.piece_position[1], 14) // Y-position of the piece shouldn't change
     }
 }
