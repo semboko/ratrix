@@ -103,6 +103,31 @@ fn get_piece_height(piece: &u16) -> u8 {
     result
 }
 
+fn get_piece_width(piece: &u16) -> u8 {
+    let mut max_width = 0;
+
+    // Iterate through each of the 4 rows
+    for i in 0..4 {
+        let row = (piece >> (i * 4)) & 0b1111; // Extract the 4-bit row
+
+        let mut leftmost = 4;  // Leftmost occupied column (initialize to max)
+        let mut rightmost = 0; // Rightmost occupied column
+
+        for j in 0..4 {
+            if (row >> j) & 1 == 1 {
+                leftmost = leftmost.min(j);
+                rightmost = rightmost.max(j);
+            }
+        }
+
+        if leftmost < 4 { // If there is at least one occupied tile in this row
+            max_width = max_width.max(rightmost - leftmost + 1);
+        }
+    }
+
+    max_width as u8
+}
+
 pub struct TetrisEngine {
     playfield: [u16; 20],
     piece_position: [u8; 2],
@@ -179,7 +204,10 @@ impl TetrisEngine {
 
     pub fn move_current_shape(&mut self, dx: isize, dy: isize) {
         if let Some(new_x) = (self.piece_position[0] as isize + dx).try_into().ok() {
-            self.piece_position[0] = new_x;
+            let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
+            if get_piece_width(&piece) + new_x <= 10 {
+                self.piece_position[0] = new_x;
+            }
         }
 
         if let Some(new_y) = (self.piece_position[1] as isize + dy).try_into().ok() {
@@ -189,6 +217,22 @@ impl TetrisEngine {
         self.changed = true;
     }
 
+    fn get_positioned_piece_row(&self, piece: &u16, i: &u8) -> u16 {
+        // Extracts the i-th row from a piece and position it into
+        // a 10 bit wide row in accordance with its current x-position.
+        
+        // Extracting i-th the row
+        let mut piece_row = (piece >> (i * 4)) & 0xf;
+        // Removing the extra zeroes from the right
+        let width = get_piece_width(&piece);
+        piece_row >>= 4 - width;
+        // Shifting to the leftmost position
+        piece_row <<= 10 - width;
+        // Shifting to the action x position
+        piece_row >>= self.piece_position[0];
+        piece_row
+    }
+
     fn can_move_down(&self) -> bool {
         let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         let piece_height = get_piece_height(&piece);
@@ -196,8 +240,7 @@ impl TetrisEngine {
             return false;
         }
         for i in 0..4 {
-            let shift_x = 7 - self.piece_position[0];
-            let piece_row = ((piece >> (i * 4)) & 0xf) << shift_x >> 1;
+            let piece_row = self.get_positioned_piece_row(&piece, &i);
             let target_y = (self.piece_position[1] + i + 1) as usize;
             if target_y > 19 {
                 break;
@@ -451,6 +494,14 @@ mod tests {
     }
 
     #[test]
+    fn piece_width_is_correctly_calculated() {
+        let north_l = get_tetromino_representation(&Tetromino::L, &Orientation::N);
+        let east_l = get_tetromino_representation(&Tetromino::L, &Orientation::E);
+        assert_eq!(get_piece_width(&north_l), 3);
+        assert_eq!(get_piece_width(&east_l), 2);
+    }
+
+    #[test]
     fn rotation_works() {
         let mut tetris = TetrisEngine::new();
         tetris.rotate();
@@ -477,5 +528,53 @@ mod tests {
         assert_eq!(lines[0], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
         assert_eq!(lines[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
         assert_eq!(lines[2], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+    }
+
+    #[test]
+    fn move_right_from_the_extreme_right_position() {
+        let mut tetris = TetrisEngine::new();
+        tetris.piece_position = [7, 0];
+        tetris.move_current_shape(1, 0);
+        assert_eq!(tetris.piece_position, [7, 0]);
+        tetris.last_update -= 1.0;
+        tetris.update();  // Update shouldn't crash the game
+    }
+
+    #[test]
+    fn rightmost_position_of_2tile_wide_piece_doesnt_crash_game() {
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [8, 0];
+        tetris.can_move_down();
+    }
+
+    #[test]
+    fn aligned_row_with_piece() {
+        let mut tetris = TetrisEngine::new();
+        let piece = &get_tetromino_representation(&Tetromino::L, &Orientation::N);
+        tetris.piece_position[0] = 2;
+        let row = tetris.get_positioned_piece_row(&piece, &0);
+        assert_eq!(row, 0b0011100000);
+        let row = tetris.get_positioned_piece_row(&piece, &1);
+        assert_eq!(row, 0b0010000000);
+    }
+
+    #[test]
+    fn can_move_down_tricky_case_3() {
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░░█░░░░░
+        // 15 ░░░░█░░░░░
+        // 16 ░░░░██░░░░
+        // 17 ░░░▓░░░░░░
+        // 18 ░░░▓░░░░░░
+        // 19 ░░░▓▓░░░░░
+        // The upper piece should be able to move down 👍
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [3, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [4, 14];
+        assert_eq!(tetris.can_move_down(), true);
     }
 }
