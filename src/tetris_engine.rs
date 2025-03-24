@@ -223,7 +223,8 @@ impl TetrisEngine {
         if let Some(new_x) = (self.piece_position[0] as isize + dx).try_into().ok() {
             let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
             let valid_move = get_piece_width(&piece) + new_x <= 10;
-            let valid_move = valid_move && !self.overlaps_locked_pieces(&new_x, &self.piece_position[1]);
+            let valid_move =
+                valid_move && !self.overlaps_locked_pieces(&new_x, &self.piece_position[1]);
             if valid_move {
                 self.piece_position[0] = new_x;
             }
@@ -245,7 +246,7 @@ impl TetrisEngine {
             return false;
         }
         if self.overlaps_locked_pieces(&self.piece_position[0], &(self.piece_position[1] + 1)) {
-            return false
+            return false;
         };
         true
     }
@@ -255,7 +256,9 @@ impl TetrisEngine {
         for i in 0..4 {
             let piece_row = get_positioned_piece_row(&piece, &i, x);
             let target_y = (y + i) as usize;
-            if target_y > 19 { break };
+            if target_y > 19 {
+                break;
+            };
             let playfield_row = self.playfield[target_y];
             if (piece_row & playfield_row) != 0 {
                 return true;
@@ -610,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn piece_coudnt_move_right_into_locked_pieces(){
+    fn piece_coudnt_move_right_into_locked_pieces() {
         // The case we are handling:
         //    0123456789
         // 14 ░░░░░░░░░░
@@ -625,11 +628,11 @@ mod tests {
         tetris.lock_active_piece();
         tetris.piece_position = [1, 15];
         tetris.move_current_shape(1, 0); // Right move
-        assert_eq!(tetris.piece_position[0], 1);  // The move doesn't affect the position
+        assert_eq!(tetris.piece_position[0], 1); // The move doesn't affect the position
     }
 
     #[test]
-    fn piece_coudnt_move_left_into_locked_pieces(){
+    fn piece_coudnt_move_left_into_locked_pieces() {
         // The case we are handling:
         //    0123456789
         // 14 ░░░░░░░░░░
@@ -644,6 +647,6 @@ mod tests {
         tetris.lock_active_piece();
         tetris.piece_position = [4, 15];
         tetris.move_current_shape(-1, 0); // Left move
-        assert_eq!(tetris.piece_position[0], 4);  // The move doesn't affect the position
+        assert_eq!(tetris.piece_position[0], 4); // The move doesn't affect the position
     }
 }
