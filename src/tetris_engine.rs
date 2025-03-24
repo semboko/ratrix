@@ -103,6 +103,22 @@ fn get_piece_height(piece: &u16) -> u8 {
     result
 }
 
+fn get_positioned_piece_row(piece: &u16, i: &u8, x: &u8) -> u16 {
+    // Extracts the i-th row from a piece and position it into
+    // a 10 bit wide row in accordance with the specified (x, y) position.
+
+    // Extracting i-th the row
+    let mut piece_row = (piece >> (i * 4)) & 0xf;
+    // Removing the extra zeroes from the right
+    let width = get_piece_width(&piece);
+    piece_row >>= 4 - width;
+    // Shifting to the leftmost position
+    piece_row <<= 10 - width;
+    // Shifting to the action x position
+    piece_row >>= x;
+    piece_row
+}
+
 fn get_piece_width(piece: &u16) -> u8 {
     let mut max_width = 0;
 
@@ -206,7 +222,9 @@ impl TetrisEngine {
     pub fn move_current_shape(&mut self, dx: isize, dy: isize) {
         if let Some(new_x) = (self.piece_position[0] as isize + dx).try_into().ok() {
             let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
-            if get_piece_width(&piece) + new_x <= 10 {
+            let valid_move = get_piece_width(&piece) + new_x <= 10;
+            let valid_move = valid_move && !self.overlaps_locked_pieces(&new_x, &self.piece_position[1]);
+            if valid_move {
                 self.piece_position[0] = new_x;
             }
         }
@@ -220,40 +238,30 @@ impl TetrisEngine {
         self.changed = true;
     }
 
-    fn get_positioned_piece_row(&self, piece: &u16, i: &u8) -> u16 {
-        // Extracts the i-th row from a piece and position it into
-        // a 10 bit wide row in accordance with its current x-position.
-
-        // Extracting i-th the row
-        let mut piece_row = (piece >> (i * 4)) & 0xf;
-        // Removing the extra zeroes from the right
-        let width = get_piece_width(&piece);
-        piece_row >>= 4 - width;
-        // Shifting to the leftmost position
-        piece_row <<= 10 - width;
-        // Shifting to the action x position
-        piece_row >>= self.piece_position[0];
-        piece_row
-    }
-
     fn can_move_down(&self) -> bool {
         let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         let piece_height = get_piece_height(&piece);
         if (self.piece_position[1] + piece_height) > 19 {
             return false;
         }
+        if self.overlaps_locked_pieces(&self.piece_position[0], &(self.piece_position[1] + 1)) {
+            return false
+        };
+        true
+    }
+
+    fn overlaps_locked_pieces(&self, x: &u8, y: &u8) -> bool {
+        let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         for i in 0..4 {
-            let piece_row = self.get_positioned_piece_row(&piece, &i);
-            let target_y = (self.piece_position[1] + i + 1) as usize;
-            if target_y > 19 {
-                break;
-            }
+            let piece_row = get_positioned_piece_row(&piece, &i, x);
+            let target_y = (y + i) as usize;
+            if target_y > 19 { break };
             let playfield_row = self.playfield[target_y];
             if (piece_row & playfield_row) != 0 {
-                return false;
+                return true;
             }
         }
-        true
+        false
     }
 
     pub fn update(&mut self) {
@@ -280,7 +288,7 @@ impl TetrisEngine {
     fn lock_active_piece(&mut self) {
         let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
         for i in 0..4 {
-            let piece_row = self.get_positioned_piece_row(&piece, &i);
+            let piece_row = get_positioned_piece_row(&piece, &i, &self.piece_position[0]);
             if piece_row == 0 {
                 continue;
             }
@@ -555,9 +563,9 @@ mod tests {
         let mut tetris = TetrisEngine::new();
         let piece = &get_tetromino_representation(&Tetromino::L, &Orientation::N);
         tetris.piece_position[0] = 2;
-        let row = tetris.get_positioned_piece_row(&piece, &0);
+        let row = get_positioned_piece_row(&piece, &0, &2);
         assert_eq!(row, 0b0011100000);
-        let row = tetris.get_positioned_piece_row(&piece, &1);
+        let row = get_positioned_piece_row(&piece, &1, &2);
         assert_eq!(row, 0b0010000000);
     }
 
@@ -599,5 +607,43 @@ mod tests {
         tetris.piece_position = [3, 14];
         tetris.move_current_shape(0, 1); // Soft drop
         assert_eq!(tetris.piece_position[1], 14) // Y-position of the piece shouldn't change
+    }
+
+    #[test]
+    fn piece_coudnt_move_right_into_locked_pieces(){
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░░░░░░░░
+        // 15 ░█░░░░░░░░ The upper L-shappe
+        // 16 ░█░░░░░░░░
+        // 17 ░██▓░░░░░░ ..is about to move into the locked tiles
+        // 18 ░░░▓░░░░░░
+        // 19 ░░░▓▓░░░░░
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [3, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [1, 15];
+        tetris.move_current_shape(1, 0); // Right move
+        assert_eq!(tetris.piece_position[0], 1);  // The move doesn't affect the position
+    }
+
+    #[test]
+    fn piece_coudnt_move_left_into_locked_pieces(){
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░░░░░░░░
+        // 15 ░░░░█░░░░░ The upper L-shappe
+        // 16 ░░░░█░░░░░
+        // 17 ░░░▓██░░░░ ..is about to move into the locked tiles
+        // 18 ░░░▓░░░░░░
+        // 19 ░░░▓▓░░░░░
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [3, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [4, 15];
+        tetris.move_current_shape(-1, 0); // Left move
+        assert_eq!(tetris.piece_position[0], 4);  // The move doesn't affect the position
     }
 }
