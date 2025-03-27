@@ -284,6 +284,7 @@ impl TetrisEngine {
             self.piece_position = [4, 0];
         }
 
+        self.apply_gravity();
         self.last_update = current_time;
         self.changed = true;
     }
@@ -313,6 +314,21 @@ impl TetrisEngine {
             Orientation::W => self.piece_orientation = Orientation::N,
         }
         self.changed = true;
+    }
+
+    fn clear_line(&mut self, i: usize) {
+        for j in (1..i+1).rev() {
+            self.playfield[j] = self.playfield[j - 1];
+        }
+        self.playfield[0] = 0;
+    }
+
+    fn apply_gravity(&mut self) {
+        for i in 0..20 {
+            if self.playfield[i] == 0b1111111111 {
+                self.clear_line(i);
+            }
+        }
     }
 
     // TODO: This is the part of the renderer layer
@@ -648,5 +664,64 @@ mod tests {
         tetris.piece_position = [4, 15];
         tetris.move_current_shape(-1, 0); // Left move
         assert_eq!(tetris.piece_position[0], 4); // The move doesn't affect the position
+    }
+
+    #[test]
+    fn update_makes_the_filled_rows_disapear() {
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░░░░░░░░
+        // 15 ░░░░░░░░░░
+        // 16 ░░░░░░░░░░
+        // 17 ▓░▓░▓░▓░█░
+        // 18 ▓░▓░▓░▓░█░
+        // 19 ▓▓▓▓▓▓▓▓██ <- The last piece adding up to the row
+
+        let mut tetris = TetrisEngine::new();
+        tetris.rotate();
+        tetris.piece_position = [0, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [2, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [4, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [6, 17];
+        tetris.lock_active_piece();
+        tetris.piece_position = [8, 17];
+        tetris.last_update -= 1.0;
+        tetris.update();
+        assert_eq!(tetris.playfield[19], 0b1010101010);
+        assert_eq!(tetris.playfield[18], 0b1010101010);
+        assert_eq!(tetris.playfield[17], 0b0000000000);
+    }
+
+    #[test]
+    fn update_removes_rows_tricky_1() {
+        // The case we are handling:
+        //    0123456789
+        // 14 ░░░░░░░░░░
+        // 15 ░░░░░░░░░░
+        // 16 ░░░░░░░░░░
+        // 17 ███░░░░░░░
+        // 18 █▓▓▓▓▓▓▓▓▓ <- Only line 18 must be removed
+        // 19 ░░▓▓▓▓▓▓▓▓
+
+        // And that what should left after all:
+        // 17 ░░░░░░░░░░
+        // 18 ▓▓▓░░░░░░░ <- The part from the line 17
+        // 19 ░░▓▓▓▓▓▓▓▓ <- The bottom line is untouched
+
+        let mut tetris = TetrisEngine::new();
+        for i in 1..10 {
+            tetris.lock_tile(i, 18);
+        }
+        for i in 2..10 {
+            tetris.lock_tile(i, 19);
+        }
+        tetris.piece_position = [0, 17];
+        tetris.last_update -= 1.0;
+        tetris.update();
+        assert_eq!(tetris.playfield[18], 0b1110000000);
+        assert_eq!(tetris.playfield[19], 0b0011111111)
     }
 }
