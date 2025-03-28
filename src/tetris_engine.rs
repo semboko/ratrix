@@ -145,6 +145,14 @@ fn get_piece_width(piece: &u16) -> u8 {
     max_width as u8
 }
 
+// DTO which is used to transfer the data into the renderer.
+pub struct GameState {
+    pub playfield: [u16; 20],
+    pub piece_position: [u8; 2],
+    pub active_piece: u16,
+    pub score: usize,
+}
+
 pub struct TetrisEngine {
     playfield: [u16; 20],
     piece_position: [u8; 2],
@@ -152,6 +160,7 @@ pub struct TetrisEngine {
     active_piece: Tetromino,
     pub changed: bool,
     last_update: f64,
+    score: usize,
 }
 
 impl TetrisEngine {
@@ -163,60 +172,8 @@ impl TetrisEngine {
             active_piece: Tetromino::L,
             piece_orientation: Orientation::N,
             last_update: get_current_time(),
+            score: 0,
         };
-    }
-
-    // Converts a 10-bit encoded integer into a visual representation of tiles using emoji.
-    // Each bit represents a tile: 1 (🟧) is a filled tile, 0 (⬜) is an empty tile.
-    fn to_string(&self, line: &u16) -> String {
-        let mut result = String::from("");
-        for i in (0..10).rev() {
-            if (line >> i & 1) == 1 {
-                result.push_str("🟧");
-            } else {
-                result.push_str("⬜");
-            }
-        }
-        result
-    }
-
-    fn piece_to_vec(&self, piece: &u16) -> Vec<String> {
-        let mut result = Vec::new();
-        let mut min_col = 4;
-        let mut max_col = 0;
-        let mut min_row = 4;
-        let mut max_row = 0;
-
-        // Determine the bounding box of the piece (non-empty columns and rows)
-        for row in 0..4 {
-            let line = (piece >> (row * 4)) & 0b1111;
-            if line != 0 {
-                min_row = min_row.min(row);
-                max_row = max_row.max(row);
-            }
-            for col in 0..4 {
-                if (line >> (3 - col)) & 1 == 1 {
-                    min_col = min_col.min(col);
-                    max_col = max_col.max(col);
-                }
-            }
-        }
-
-        // Convert the cropped piece into a vector of strings
-        for row in min_row..=max_row {
-            let line = (piece >> (row * 4)) & 0b1111;
-            let mut row_str = String::new();
-            for col in min_col..=max_col {
-                if (line >> (3 - col)) & 1 == 1 {
-                    row_str.push_str("🟧");
-                } else {
-                    row_str.push_str("⬜");
-                }
-            }
-            result.push(row_str);
-        }
-
-        result
     }
 
     pub fn move_current_shape(&mut self, dx: isize, dy: isize) {
@@ -317,7 +274,7 @@ impl TetrisEngine {
     }
 
     fn clear_line(&mut self, i: usize) {
-        for j in (1..i+1).rev() {
+        for j in (1..i + 1).rev() {
             self.playfield[j] = self.playfield[j - 1];
         }
         self.playfield[0] = 0;
@@ -331,75 +288,19 @@ impl TetrisEngine {
         }
     }
 
-    // TODO: This is the part of the renderer layer
-    pub fn get_lines(&self) -> Vec<String> {
-        let mut result: Vec<String> = vec![];
-
-        // Populate the grid cells of the playfield
-        for row in 0..20 {
-            let row = self.playfield[row];
-            result.push(self.to_string(&row))
+    pub fn get_state(&self) -> GameState {
+        GameState {
+            playfield: self.playfield,
+            piece_position: self.piece_position,
+            active_piece: get_tetromino_representation(&self.active_piece, &self.piece_orientation),
+            score: self.score,
         }
-
-        // Merge the active piece into playfield
-        let (px, py) = (
-            self.piece_position[0] as usize,
-            self.piece_position[1] as usize,
-        );
-        let piece = get_tetromino_representation(&self.active_piece, &self.piece_orientation);
-        let piece_vec = self.piece_to_vec(&piece);
-        for (row_offset, piece_row) in piece_vec.iter().enumerate() {
-            let target_row = py + row_offset;
-            if target_row >= self.playfield.len() {
-                continue; // Avoid out-of-bounds access!
-            }
-            let mut playfield_row: Vec<char> = result[target_row].chars().collect();
-            let piece_chars: Vec<char> = piece_row.chars().collect();
-            for (col_offset, &piece_char) in piece_chars.iter().enumerate() {
-                let target_col = px + col_offset;
-                if target_col >= playfield_row.len() || piece_char == '⬜' {
-                    continue;
-                }
-                playfield_row[target_col] = piece_char;
-            }
-            result[target_row] = playfield_row.iter().collect();
-        }
-
-        result
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn initial_board_state() {
-        let tetris = TetrisEngine::new();
-        let board_str = tetris.get_lines();
-        // The first 3 lines must contain the active_piece
-        // TODO: Currently it's always an L piece, but it should be a random piece in the future
-        assert_eq!(board_str[0], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(board_str[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
-
-        // The rest of the lines should be empty
-        for i in 2..20 {
-            assert_eq!(board_str[i], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
-        }
-    }
-
-    #[test]
-    fn board_lock_tile() {
-        let mut tetris = TetrisEngine::new();
-        tetris.lock_tile(0, 0);
-        let board_str = tetris.get_lines();
-        assert_eq!(board_str[0], "🟧⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(board_str[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
-        // The rest of the lines should be empty
-        for i in 3..20 {
-            assert_eq!(board_str[i], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
-        }
-    }
 
     #[test]
     fn change_is_true_when_piece_lock_happened() {
@@ -528,35 +429,6 @@ mod tests {
         let east_l = get_tetromino_representation(&Tetromino::L, &Orientation::E);
         assert_eq!(get_piece_width(&north_l), 3);
         assert_eq!(get_piece_width(&east_l), 2);
-    }
-
-    #[test]
-    fn rotation_works() {
-        let mut tetris = TetrisEngine::new();
-        tetris.rotate();
-        assert_eq!(tetris.changed, true); // Changed!
-        let lines = tetris.get_lines();
-        assert_eq!(lines[0], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
-        assert_eq!(lines[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
-        assert_eq!(lines[2], "⬜⬜⬜⬜🟧🟧⬜⬜⬜⬜");
-        tetris.rotate();
-        assert_eq!(tetris.changed, true);
-        let lines = tetris.get_lines();
-        assert_eq!(lines[0], "⬜⬜⬜⬜⬜⬜🟧⬜⬜⬜");
-        assert_eq!(lines[1], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(lines[2], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
-        tetris.rotate();
-        assert_eq!(tetris.changed, true);
-        let lines = tetris.get_lines();
-        assert_eq!(lines[0], "⬜⬜⬜⬜🟧🟧⬜⬜⬜⬜");
-        assert_eq!(lines[1], "⬜⬜⬜⬜⬜🟧⬜⬜⬜⬜");
-        assert_eq!(lines[2], "⬜⬜⬜⬜⬜🟧⬜⬜⬜⬜");
-        tetris.rotate();
-        assert_eq!(tetris.changed, true);
-        let lines = tetris.get_lines();
-        assert_eq!(lines[0], "⬜⬜⬜⬜🟧🟧🟧⬜⬜⬜");
-        assert_eq!(lines[1], "⬜⬜⬜⬜🟧⬜⬜⬜⬜⬜");
-        assert_eq!(lines[2], "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
     }
 
     #[test]
