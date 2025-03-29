@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.28.1"
+rand = "0.9.0"

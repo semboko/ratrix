@@ -45,25 +45,25 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
 
     match (piece, orientation) {
         // T-Piece
-        (Tetromino::T, Orientation::N) => 0b_0000_0000_1110_0100, // OK
-        (Tetromino::T, Orientation::E) => 0b_0000_1000_1100_1000, // OK
-        (Tetromino::T, Orientation::S) => 0b_0000_0000_0100_1110, // OK
-        (Tetromino::T, Orientation::W) => 0b_0000_0100_1100_0100, // OK
+        (Tetromino::T, Orientation::N) => 0b_0000_0000_1110_0100,
+        (Tetromino::T, Orientation::E) => 0b_0000_1000_1100_1000,
+        (Tetromino::T, Orientation::S) => 0b_0000_0000_0100_1110,
+        (Tetromino::T, Orientation::W) => 0b_0000_0100_1100_0100,
 
         // I-Piece
-        (Tetromino::I, Orientation::N) => 0b_1000_1000_1000_1000, // OK
-        (Tetromino::I, Orientation::E) => 0b_0000_0000_0000_1111, // OK
-        (Tetromino::I, Orientation::S) => 0b_1000_1000_1000_1000, // OK
-        (Tetromino::I, Orientation::W) => 0b_0000_0000_0000_1111, // OK
+        (Tetromino::I, Orientation::N) => 0b_1000_1000_1000_1000,
+        (Tetromino::I, Orientation::E) => 0b_0000_0000_0000_1111,
+        (Tetromino::I, Orientation::S) => 0b_1000_1000_1000_1000,
+        (Tetromino::I, Orientation::W) => 0b_0000_0000_0000_1111,
 
         // O-Piece (always the same)
-        (Tetromino::O, _) => 0b_0000_0000_1100_1100, // OK
+        (Tetromino::O, _) => 0b_0000_0000_1100_1100,
 
         // L-Piece
-        (Tetromino::L, Orientation::N) => 0b_0000_0000_1000_1110, // OK
-        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000, // OK
-        (Tetromino::L, Orientation::S) => 0b_0000_0000_1110_0010, // OK
-        (Tetromino::L, Orientation::W) => 0b_0000_0100_0100_1100, // OK
+        (Tetromino::L, Orientation::N) => 0b_0000_0000_1000_1110,
+        (Tetromino::L, Orientation::E) => 0b_0000_1100_1000_1000,
+        (Tetromino::L, Orientation::S) => 0b_0000_0000_1110_0010,
+        (Tetromino::L, Orientation::W) => 0b_0000_0100_0100_1100,
 
         // J-Piece
         (Tetromino::J, Orientation::N) => 0b_0000_0111_0001_0000,
@@ -72,16 +72,16 @@ fn get_tetromino_representation(piece: &Tetromino, orientation: &Orientation) ->
         (Tetromino::J, Orientation::W) => 0b_0000_0010_0010_0110,
 
         // S-Piece
-        (Tetromino::S, Orientation::N) => 0b_0000_0110_0011_0000,
-        (Tetromino::S, Orientation::E) => 0b_0000_0010_0110_0100,
-        (Tetromino::S, Orientation::S) => 0b_0000_0110_0011_0000,
-        (Tetromino::S, Orientation::W) => 0b_0000_0010_0110_0100,
+        (Tetromino::S, Orientation::N) => 0b_0000_0000_1100_0110,
+        (Tetromino::S, Orientation::E) => 0b_0000_0100_1100_1000,
+        (Tetromino::S, Orientation::S) => 0b_0000_0000_1100_0110,
+        (Tetromino::S, Orientation::W) => 0b_0000_0100_1100_1000,
 
         // Z-Piece
-        (Tetromino::Z, Orientation::N) => 0b_0000_0011_0110_0000,
-        (Tetromino::Z, Orientation::E) => 0b_0000_0100_0110_0010,
-        (Tetromino::Z, Orientation::S) => 0b_0000_0011_0110_0000,
-        (Tetromino::Z, Orientation::W) => 0b_0000_0100_0110_0010,
+        (Tetromino::Z, Orientation::N) => 0b_0000_0000_0110_1100,
+        (Tetromino::Z, Orientation::E) => 0b_0000_1000_1100_0100,
+        (Tetromino::Z, Orientation::S) => 0b_0000_0000_0110_1100,
+        (Tetromino::Z, Orientation::W) => 0b_0000_1000_1100_0100,
     }
 }
 
@@ -95,7 +95,7 @@ fn get_current_time() -> f64 {
 fn get_piece_height(piece: &u16) -> u8 {
     let mut result: u8 = 0;
     for i in 0..4 {
-        let piece_row = (piece >> i * 4) * 0xf;
+        let piece_row = (piece >> i * 4) & 0xf;
         if piece_row > 0 {
             result += 1;
         }
@@ -110,11 +110,13 @@ fn get_positioned_piece_row(piece: &u16, i: &u8, x: &u8) -> u16 {
     // Extracting i-th the row
     let mut piece_row = (piece >> (i * 4)) & 0xf;
     // Removing the extra zeroes from the right
-    let width = get_piece_width(&piece);
-    piece_row >>= 4 - width;
-    // Shifting to the leftmost position
-    piece_row <<= 10 - width;
-    // Shifting to the action x position
+    // let width = get_piece_width(&piece);
+    // piece_row >>= 4 - width;
+    // // Shifting to the leftmost position
+    // piece_row <<= 10 - width;
+    // // Shifting to the action x position
+    // piece_row >>= x;
+    piece_row <<= 6; // Move it to the X=0 coordinate
     piece_row >>= x;
     piece_row
 }
@@ -174,6 +176,20 @@ impl TetrisEngine {
             last_update: get_current_time(),
             score: 0,
         };
+    }
+
+    pub fn generate_random_piece(&mut self) {
+        let idx: usize = rand::random_range(0..7);
+        self.active_piece = match idx {
+            0 => Tetromino::I,
+            1 => Tetromino::J,
+            2 => Tetromino::L,
+            3 => Tetromino::O,
+            4 => Tetromino::S,
+            5 => Tetromino::T,
+            6 => Tetromino::Z,
+            _ => panic!("No such type of tetromino found"),
+        }
     }
 
     pub fn move_current_shape(&mut self, dx: isize, dy: isize) {
@@ -237,8 +253,8 @@ impl TetrisEngine {
             self.piece_position[1] += 1;
         } else {
             self.lock_active_piece();
-            // TODO: Generate a new active_piece
             self.piece_position = [4, 0];
+            self.generate_random_piece();
         }
 
         self.apply_gravity();
@@ -595,5 +611,13 @@ mod tests {
         tetris.update();
         assert_eq!(tetris.playfield[18], 0b1110000000);
         assert_eq!(tetris.playfield[19], 0b0011111111)
+    }
+
+    #[test]
+    fn ipiece_is_able_to_appear_on_the_playfield() {
+        let mut tetris = TetrisEngine::new();
+        tetris.active_piece = Tetromino::I;
+        tetris.last_update -= 1.0;
+        tetris.update();
     }
 }
